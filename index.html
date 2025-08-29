@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIU Computer Repairs Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNCIgZmlsbD0iIzJEMzc0OCIvPgo8cGF0aCBkPSJNOCA4SDE2VjI0SDhWOFoiIGZpbGw9IiM2MEE1RkEiLz4KPHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHg9IjgiIHk9IjgiIGZpbGw9IiM2MEE1RkEiPgo8cGF0aCBkPSJNMiAySDEwVjE0SDJWMLOIIG9wYWNpdHk9IjAuNyIvPgo8L3N2Zz4KPC9zdmc+">
+</head>
+<body>
+    <div id="app">
+        <header class="header">
+            <div class="header-content">
+                <h1>
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                        <rect width="32" height="32" rx="4" fill="#2D3748"/>
+                        <path d="M8 8H16V24H8V8Z" fill="#60A5FA"/>
+                        <path d="M10 10H14V12H10V10Z" fill="#1E293B" opacity="0.7"/>
+                        <path d="M10 14H14V16H10V14Z" fill="#1E293B" opacity="0.7"/>
+                        <path d="M10 18H14V20H10V18Z" fill="#1E293B" opacity="0.7"/>
+                        <circle cx="20" cy="12" r="3" fill="#60A5FA"/>
+                        <path d="M18 20H22V22H18V20Z" fill="#60A5FA"/>
+                    </svg>
+                    LIU Computer Repairs Tracker
+                </h1>
+                <div class="header-stats">
+                    <span class="stat" id="total-repairs">Total: 0</span>
+                    <span class="stat" id="pending-repairs">Pending: 0</span>
+                    <span class="stat" id="completed-repairs">Completed: 0</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="main">
+            <div class="controls">
+                <button class="btn btn-primary" id="new-repair-btn">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
+                    </svg>
+                    New Repair
+                </button>
+                
+                <div class="search-filters">
+                    <input type="search" id="search-input" placeholder="Search repairs..." class="search-input">
+                    
+                    <select id="status-filter" class="filter-select">
+                        <option value="">All Status</option>
+                        <option value="received">Received</option>
+                        <option value="diagnosing">Diagnosing</option>
+                        <option value="waiting-parts">Waiting for Parts</option>
+                        <option value="on-hold">On Hold</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                    
+                    <select id="brand-filter" class="filter-select">
+                        <option value="">All Brands</option>
+                        <option value="DELL">DELL</option>
+                        <option value="Apple">Apple</option>
+                    </select>
+                    
+                    <button class="btn btn-secondary" id="import-csv-btn">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                        Import CSV
+                    </button>
+                    
+                    <button class="btn btn-secondary" id="export-csv-btn">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                        </svg>
+                        Export CSV
+                    </button>
+                    
+                    <button class="btn btn-secondary" id="reports-btn">
+                        <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+                        </svg>
+                        Reports
+                    </button>
+                </div>
+            </div>
+
+            <div class="repairs-table-container">
+                <table class="repairs-table" id="repairs-table">
+                    <thead>
+                        <tr>
+                            <th>Ticket #</th>
+                            <th>Brand</th>
+                            <th>Model</th>
+                            <th>Serial #</th>
+                            <th>Problem</th>
+                            <th>Status</th>
+                            <th>Notes</th>
+                            <th>Date Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="repairs-tbody">
+                        <!-- Repair entries will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for adding/editing repairs -->
+    <div id="repair-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">New Repair Ticket</h2>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <form id="repair-form" class="repair-form">
+                <div class="form-group">
+                    <label for="ticketNumber">BMC Footprints Ticket # *</label>
+                    <input type="text" id="ticketNumber" name="ticketNumber" required placeholder="e.g., FP-2024-001234">
+                </div>
+
+                <div class="form-group">
+                    <label for="brand">Brand *</label>
+                    <select id="brand" name="brand" required>
+                        <option value="">Select Brand</option>
+                        <option value="DELL">DELL</option>
+                        <option value="Apple">Apple</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="model">Model *</label>
+                    <input type="text" id="model" name="model" required placeholder="e.g., Latitude 5520, MacBook Pro 13">
+                </div>
+
+                <div class="form-group">
+                    <label for="serial">Serial Number *</label>
+                    <input type="text" id="serial" name="serial" required placeholder="Computer serial number">
+                </div>
+
+                <div class="form-group">
+                    <label for="specs">Specifications</label>
+                    <textarea id="specs" name="specs" rows="3" placeholder="RAM, Storage, Processor, etc."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="problem">Problem Description *</label>
+                    <textarea id="problem" name="problem" rows="4" required placeholder="Describe the issue..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="status">Status *</label>
+                    <select id="status" name="status" required>
+                        <option value="received">Received</option>
+                        <option value="diagnosing">Diagnosing</option>
+                        <option value="waiting-parts">Waiting for Parts</option>
+                        <option value="on-hold">On Hold</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Additional Notes</label>
+                    <textarea id="notes" name="notes" rows="3" placeholder="Add notes here (will be saved with timestamp to change history)..."></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="save-btn">Save Repair</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Reports Modal -->
+    <div id="reports-modal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>Repair Reports & Analytics</h2>
+                <button class="modal-close" id="reports-modal-close">&times;</button>
+            </div>
+            <div id="reports-content" class="reports-content">
+                <!-- Reports content will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Setup and Change Form Modal -->
+    <div id="setup-change-modal" class="modal">
+        <div class="modal-content modal-large setup-change-form">
+            <div class="modal-header">
+                <h2>Setup and Change Form</h2>
+                <div class="form-actions-header">
+                    <button class="btn btn-secondary" id="print-form-btn">
+                        <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zM5 14H4v-3h1v3zm1 0v2h8v-2H6zm0-1h8v-3H6v3z" clip-rule="evenodd"/>
+                        </svg>
+                        Print Form
+                    </button>
+                    <button class="modal-close" id="setup-change-modal-close">&times;</button>
+                </div>
+            </div>
+            <div id="setup-change-content" class="setup-change-content">
+                <!-- Setup and Change form content will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes History Modal -->
+    <div id="notes-history-modal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2 id="notes-history-title">Notes History</h2>
+                <button class="modal-close" id="notes-history-modal-close">&times;</button>
+            </div>
+            <div id="notes-history-content" class="notes-history-content">
+                <!-- Notes history content will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
