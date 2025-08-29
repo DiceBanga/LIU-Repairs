@@ -1,0 +1,62 @@
+# Docker ignore file for LIU Computer Repairs Tracker
+# Exclude unnecessary files from Docker build context
+
+# Version control
+.git
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# Docker files (not needed in container)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Node modules (if any)
+node_modules/
+npm-debug.log*
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Build artifacts
+dist/
+build/
+
+# SSL certificates
+*.pem
+*.crt
+*.key
+letsencrypt/
+
+# Monitoring config
+monitoring/
+
+# Environment files
+.env
+.env.local
+.env.production
