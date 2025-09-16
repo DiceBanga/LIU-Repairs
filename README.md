@@ -6,10 +6,11 @@ A modern, responsive web application for tracking and managing computer repairs 
 
 ### ✨ Core Functionality
 - **Repair Ticket Management**: Create, view, edit, and delete repair tickets
+- **Personnel Tracking**: Track end users who submitted requests and assigned technicians
 - **Computer Information Tracking**: Brand, model, serial number, and specifications
 - **Problem & Diagnosis Documentation**: Detailed problem descriptions and technical diagnoses
 - **Status Tracking**: Received → Diagnosing → Waiting for Parts → On Hold → Completed
-- **Search & Filter**: Real-time search and filtering by status, brand, date, and more
+- **Search & Filter**: Real-time search and filtering by status, brand, date, personnel, and more
 
 ### 📊 Analytics & Reporting
 - **Dashboard Statistics**: Total repairs, pending count, completion rates
@@ -25,7 +26,8 @@ A modern, responsive web application for tracking and managing computer repairs 
 
 ### 🎨 User Experience
 - **Dark Theme**: Professional dark interface with light blue accents
-- **Responsive Design**: Optimized for desktop, tablet, and mobile devices
+- **Responsive Design**: Optimized for desktop, tablet, and mobile devices with horizontal scrolling
+- **Mobile-Friendly Table**: Horizontal scroll access to all columns including Actions on mobile devices
 - **Keyboard Shortcuts**: Ctrl+N for new repairs, Esc to close modals
 - **Accessibility**: WCAG compliant with proper focus management
 
@@ -57,11 +59,14 @@ Then open `http://localhost:8000` in your browser.
 ### Creating a New Repair
 1. Click the **"New Repair"** button
 2. Fill in the required fields:
+   - **Ticket Number**: BMC Footprints ticket reference (e.g., "FP-2024-001234")
+   - **End User**: Name of person who submitted the repair request
    - **Brand**: DELL or Apple
    - **Model**: Computer model (e.g., "Latitude 5520", "MacBook Pro 13")
    - **Serial Number**: Computer's serial number
    - **Problem Description**: Detailed issue description
 3. Optionally add:
+   - **Technician**: Assigned technician name
    - **Specifications**: RAM, storage, processor details
    - **Diagnosis**: Technical findings
    - **Status**: Current repair status
@@ -73,6 +78,7 @@ Then open `http://localhost:8000` in your browser.
 - **Delete**: Click the delete (trash) icon to remove a repair
 - **Search**: Use the search box to find specific repairs
 - **Filter**: Use status and brand dropdowns to filter the list
+- **Mobile Access**: On mobile devices, scroll horizontally within the table to access all columns and actions
 
 ### Exporting Data
 1. Click **"Export CSV"** to download all visible repairs
@@ -98,7 +104,9 @@ Then open `http://localhost:8000` in your browser.
 ### Repair Ticket Fields
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| Ticket Number | String | Auto | LIU-YYYY-### format |
+| Ticket Number | String | Yes | BMC Footprints ticket reference |
+| End User | String | Yes | Name of person who submitted request |
+| Technician | String | No | Assigned technician name |
 | Brand | String | Yes | DELL or Apple |
 | Model | String | Yes | Computer model |
 | Serial Number | String | Yes | Unique identifier |
@@ -124,7 +132,12 @@ LIU-Repairs/
 ├── index.html          # Main application page
 ├── styles.css          # LIU-themed CSS styles
 ├── app.js             # Application logic
+├── server.js          # Node.js server for data persistence
+├── Dockerfile         # Docker container configuration
+├── docker-compose.yml # Docker deployment configuration
 ├── README.md          # This documentation
+├── CHANGELOG.md       # Version history and changes
+├── DEPLOYMENT.md      # Server deployment guide
 └── resources/
     └── Set up and Change Form.pdf
 ```
@@ -144,10 +157,11 @@ LIU-Repairs/
 - **Web APIs**: Local Storage, File Reader, Blob, URL
 
 ### Data Storage
-- All data stored in browser's `localStorage`
-- Storage key: `liu-repairs`
-- Automatic backup on every change
-- No server or database required
+- **Dual Storage System**: Browser localStorage + server-side file storage
+- **Primary**: Server-side JSON files with persistent Docker volumes
+- **Fallback**: Browser localStorage for offline functionality
+- **Storage key**: `liu-repairs`
+- **Data persistence**: Survives container rebuilds and updates
 
 ### Security Considerations
 - All data remains local to user's browser
@@ -411,6 +425,28 @@ To check storage usage:
 console.log(JSON.stringify(localStorage.getItem('liu-repairs')).length + ' characters');
 ```
 
+### Responsive Table Layout
+The repairs table uses a fixed column layout optimized for both desktop and mobile viewing:
+
+**Column Layout** (Left to Right):
+1. **Ticket #** (120px) - Repair ticket identifier
+2. **End User** (140px) - Person who submitted the request
+3. **Technician** (120px) - Assigned technician
+4. **Brand** (80px) - Computer manufacturer
+5. **Model** (150px) - Computer model
+6. **Serial #** (120px) - Device serial number
+7. **Problem** (200px) - Issue description
+8. **Status** (100px) - Current repair status
+9. **Notes** (80px) - Additional notes button
+10. **Date Created** (100px) - Creation timestamp
+11. **Actions** (120px) - Edit/Delete buttons
+
+**Mobile Experience**:
+- Table container supports horizontal scrolling
+- Minimum table width ensures all columns remain accessible
+- Users can swipe horizontally to access Actions column on mobile devices
+- Maintains full functionality across all screen sizes
+
 ## Contributing
 
 This is a standalone application for Long Island University. For modifications:
@@ -430,7 +466,9 @@ For technical support or feature requests, contact the LIU IT department.
 
 ---
 
-**Version**: 1.0  
-**Last Updated**: January 2024  
+**Version**: 1.2.1  
+**Last Updated**: September 2025  
 **Compatible Browsers**: Chrome, Firefox, Safari, Edge  
-**Platform**: Web (Cross-platform)
+**Platform**: Web (Cross-platform)  
+**Deployment**: Docker with persistent data storage  
+**Mobile Support**: Horizontal scrolling for full table access on small screens
