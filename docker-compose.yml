@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   liu-repairs:
-    build: .
+    image: ${DOCKER_USERNAME:-dicebanga}/liu-repairs:latest
     container_name: liu-repairs-app
     ports:
       - "8080:3000"

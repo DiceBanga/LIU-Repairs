@@ -1,0 +1,19 @@
+{
+  "name": "liu-repairs-tracker",
+  "version": "1.0.0",
+  "description": "LIU Computer Repairs Tracking Application",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": ["repair", "tracking", "computer", "liu"],
+  "author": "LIU IT Department",
+  "license": "MIT"
+}

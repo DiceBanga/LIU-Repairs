@@ -3,15 +3,19 @@
 
 class RepairTracker {
     constructor() {
-        this.repairs = this.loadRepairs();
-        this.filteredRepairs = [...this.repairs];
+        this.repairs = [];
+        this.filteredRepairs = [];
         this.currentEditId = null;
+        this.ws = null;
+        this.dataFile = 'repairs.json';
         
         this.init();
     }
 
     init() {
         this.bindEvents();
+        this.connectWebSocket();
+        this.loadInitialData();
         this.renderRepairs();
         this.updateStats();
     }
@@ -92,24 +96,87 @@ class RepairTracker {
         });
     }
 
-    // Data management
-    loadRepairs() {
-        const stored = localStorage.getItem('liu-repairs');
-        if (stored) {
+    // WebSocket connection management
+    connectWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}`;
+        
+        this.ws = new WebSocket(wsUrl);
+        
+        this.ws.onopen = () => {
+            console.log('Connected to server via WebSocket');
+            this.showNotification('Connected to server', 'success');
+        };
+        
+        this.ws.onmessage = (event) => {
             try {
-                return JSON.parse(stored);
-            } catch (e) {
-                console.error('Error loading repairs from localStorage:', e);
+                const message = JSON.parse(event.data);
+                this.handleWebSocketMessage(message);
+            } catch (error) {
+                console.error('Error parsing WebSocket message:', error);
             }
+        };
+        
+        this.ws.onclose = () => {
+            console.log('WebSocket connection closed');
+            this.showNotification('Connection lost. Attempting to reconnect...', 'error');
+            setTimeout(() => this.connectWebSocket(), 3000);
+        };
+        
+        this.ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+    }
+    
+    handleWebSocketMessage(message) {
+        switch (message.type) {
+            case 'initialData':
+                if (message.file === this.dataFile) {
+                    this.repairs = Array.isArray(message.data) ? message.data : this.generateSampleData();
+                    this.applyFilters();
+                    this.updateStats();
+                }
+                break;
+            case 'dataUpdate':
+                if (message.file === this.dataFile) {
+                    this.repairs = Array.isArray(message.data) ? message.data : [];
+                    this.applyFilters();
+                    this.updateStats();
+                    this.showNotification('Data updated from another device', 'info');
+                }
+                break;
         }
-        return this.generateSampleData();
+    }
+    
+    // Data management
+    async loadInitialData() {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({
+                type: 'requestData',
+                file: this.dataFile
+            }));
+        } else {
+            // Fallback to sample data if WebSocket not ready
+            setTimeout(() => this.loadInitialData(), 1000);
+        }
     }
 
-    saveRepairs() {
+    async saveRepairs() {
         try {
-            localStorage.setItem('liu-repairs', JSON.stringify(this.repairs));
-        } catch (e) {
-            console.error('Error saving repairs to localStorage:', e);
+            const response = await fetch(`/data/${this.dataFile}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(this.repairs)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+        } catch (error) {
+            console.error('Error saving repairs to server:', error);
+            this.showNotification('Error saving data to server', 'error');
         }
     }
 
@@ -327,7 +394,7 @@ class RepairTracker {
     }
 
     // Core CRUD operations
-    addRepair(repairData) {
+    async addRepair(repairData) {
         const repair = {
             id: this.generateId(),
             ...repairData,
@@ -335,18 +402,18 @@ class RepairTracker {
         };
 
         this.repairs.unshift(repair);
-        this.saveRepairs();
+        await this.saveRepairs();
         this.applyFilters();
         this.updateStats();
         
         this.showNotification('Repair ticket created successfully', 'success');
     }
 
-    updateRepair(id, repairData) {
+    async updateRepair(id, repairData) {
         const index = this.repairs.findIndex(r => r.id === id);
         if (index !== -1) {
             this.repairs[index] = { ...this.repairs[index], ...repairData };
-            this.saveRepairs();
+            await this.saveRepairs();
             this.applyFilters();
             this.updateStats();
             
@@ -354,10 +421,10 @@ class RepairTracker {
         }
     }
 
-    deleteRepair(id) {
+    async deleteRepair(id) {
         if (confirm('Are you sure you want to delete this repair ticket?')) {
             this.repairs = this.repairs.filter(r => r.id !== id);
-            this.saveRepairs();
+            await this.saveRepairs();
             this.applyFilters();
             this.updateStats();
             
@@ -372,7 +439,7 @@ class RepairTracker {
         if (this.filteredRepairs.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="9" class="empty-state">
+                    <td colspan="11" class="empty-state">
                         <div>
                             <svg fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
@@ -389,6 +456,8 @@ class RepairTracker {
         tbody.innerHTML = this.filteredRepairs.map(repair => `
             <tr>
                 <td><strong>${this.escapeHtml(repair.ticketNumber)}</strong></td>
+                <td>${this.escapeHtml(repair.endUser || '')}</td>
+                <td>${this.escapeHtml(repair.technician || '')}</td>
                 <td>${this.escapeHtml(repair.brand)}</td>
                 <td>${this.escapeHtml(repair.model)}</td>
                 <td><code>${this.escapeHtml(repair.serial)}</code></td>
@@ -474,7 +543,7 @@ class RepairTracker {
     }
 
     // Form handling
-    handleSubmit(e) {
+    async handleSubmit(e) {
         e.preventDefault();
         
         const formData = new FormData(e.target);
@@ -482,6 +551,8 @@ class RepairTracker {
         
         const repairData = {
             ticketNumber: formData.get('ticketNumber'),
+            endUser: formData.get('endUser'),
+            technician: formData.get('technician') || '',
             brand: formData.get('brand'),
             model: formData.get('model'),
             serial: formData.get('serial'),
@@ -496,18 +567,18 @@ class RepairTracker {
             // For updates, accumulate notes with timestamps
             const existingRepair = this.repairs.find(r => r.id === this.currentEditId);
             repairData.notes = this.buildAccumulatedNotes(existingRepair, newNotes, repairData.status);
-            this.updateRepair(this.currentEditId, repairData);
+            await this.updateRepair(this.currentEditId, repairData);
         } else {
             // For new repairs, just add the initial note with timestamp if provided
             repairData.notes = newNotes ? this.formatNoteEntry(newNotes, 'Created') : '';
-            this.addRepair(repairData);
+            await this.addRepair(repairData);
         }
 
         this.hideModal();
     }
 
     populateForm(repair) {
-        const fields = ['ticketNumber', 'brand', 'model', 'serial', 'specs', 'problem', 'diagnosis', 'status'];
+        const fields = ['ticketNumber', 'endUser', 'technician', 'brand', 'model', 'serial', 'specs', 'problem', 'diagnosis', 'status'];
         fields.forEach(field => {
             const element = document.getElementById(field);
             if (element && repair[field]) {
@@ -619,7 +690,7 @@ class RepairTracker {
 
     handleCSVImport(file) {
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             try {
                 const csv = e.target.result;
                 const lines = csv.split('\n').filter(line => line.trim());
@@ -654,7 +725,7 @@ class RepairTracker {
 
                 if (importedRepairs.length > 0 && confirm(`Import ${importedRepairs.length} repair(s) from CSV?`)) {
                     this.repairs = [...importedRepairs, ...this.repairs];
-                    this.saveRepairs();
+                    await this.saveRepairs();
                     this.applyFilters();
                     this.updateStats();
                     this.showNotification(`Successfully imported ${importedRepairs.length} repairs`, 'success');

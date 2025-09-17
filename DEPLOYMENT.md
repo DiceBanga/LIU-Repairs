@@ -1,6 +1,6 @@
 # LIU Computer Repairs Tracker - Server Deployment Guide
 
-This guide covers how to install and deploy the LIU Computer Repairs Tracker application on your server after setting up CI/CD pipeline.
+This guide covers how to install and deploy the LIU Computer Repairs Tracker application (v1.2.0) on your server. The application now uses Node.js with persistent data storage and Docker containerization.
 
 ## 🚀 **Option 1: Direct Docker Compose Deployment (Recommended)**
 
@@ -34,31 +34,96 @@ docker-compose logs -f liu-repairs
 ### Step 3: Access the Application
 - **Local Server**: `http://your-server-ip:8080`
 - **Domain**: Configure reverse proxy (nginx/traefik) for `http://repairs.liu.edu`
+- **Health Check**: `http://your-server-ip:8080/health`
+
+**Note**: The application now runs on Node.js (port 3000 internally, 8080 externally) with persistent data storage in Docker volumes.
 
 ---
 
 ## 🔄 **Option 2: CI/CD Automated Deployment**
 
-If you've set up GitHub Actions, you can automate deployment:
+### Typical CI/CD Development Workflow
 
-### Create Deployment Action
+**Development Process:**
+1. **Local Development** → Create feature branch, make changes, commit
+2. **Pull Request** → Create PR, code review, automated tests
+3. **Merge to Main** → Triggers automated build and deployment
+4. **Server Update** → Application automatically updates with latest changes
+
+**Key Benefits:**
+- No manual server access needed
+- Consistent deployments
+- Rollback capabilities
+- Automated testing before deployment
+
+### Build vs Deployment Triggers
+
+**Builds are triggered on:**
+- Push to `main` branch only
+- Manual workflow dispatch
+
+**Deployment options:**
+```bash
+# Option A: Fully Automated (Recommended)
+GitHub Actions → Build → Push to Docker Hub → Deploy to Server
+
+# Option B: Semi-Automated (Current)  
+GitHub Actions → Build → Push to Docker Hub
+Manual: docker compose pull && docker compose up -d
+
+# Option C: Manual (Legacy)
+Manual: git pull && docker compose up -d --build
+```
+
+### Docker Hub Workflow (Recommended)
+Since GitHub Actions builds and pushes to Docker Hub, server only needs:
+
+```bash
+# No git pull needed - just update from Docker Hub
+docker compose pull      # Pull latest images
+docker compose up -d     # Restart with new images
+```
+
+### Create Full CI/CD Pipeline
 Add this to `.github/workflows/deploy.yml`:
 
 ```yaml
-name: Deploy to Server
+name: Build and Deploy
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: [ main ]  # Only triggers on main branch
+  workflow_dispatch:    # Manual trigger option
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    
     steps:
     - uses: actions/checkout@v4
     
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          your-dockerhub/liu-repairs:latest
+          your-dockerhub/liu-repairs:${{ github.sha }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    
+    steps:
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.0
       with:
@@ -66,16 +131,58 @@ jobs:
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SERVER_SSH_KEY }}
         script: |
-          cd /path/to/LIU-Repairs
-          git pull origin main
-          docker-compose up -d --build
+          cd /opt/LIU-Repairs
+          docker compose pull
+          docker compose up -d
+          docker system prune -f
 ```
 
-### Set Repository Secrets
-In GitHub: **Settings → Secrets → Actions**
-- `SERVER_HOST`: Your server IP/domain
-- `SERVER_USER`: SSH username
-- `SERVER_SSH_KEY`: Private SSH key
+### Alternative: Watchtower Auto-Updates
+Add to your `docker-compose.yml` for automatic updates:
+
+```yaml
+services:
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=300  # Check every 5 minutes
+    command: --interval 300 --cleanup
+```
+
+### Required Repository Secrets
+In GitHub: **Settings → Secrets and Variables → Actions**
+
+**For Docker Hub:**
+- `DOCKER_USERNAME`: Your Docker Hub username
+- `DOCKER_PASSWORD`: Your Docker Hub access token
+
+**For Server Deployment:**
+- `SERVER_HOST`: Your server IP/domain  
+- `SERVER_USER`: SSH username (e.g., `ubuntu`, `root`)
+- `SERVER_SSH_KEY`: Private SSH key content
+
+### Development Workflow Summary
+```bash
+# 1. Feature Development
+git checkout -b feature/new-feature
+# Make changes...
+git add . && git commit -m "feat: add new feature"
+git push origin feature/new-feature
+
+# 2. Pull Request & Review
+# Create PR → Code review → Automated tests
+
+# 3. Merge to Main (triggers CI/CD)
+# GitHub Actions builds Docker image
+# Pushes to Docker Hub
+# Deploys to server automatically
+
+# 4. Server Updates Automatically
+# No manual intervention needed!
+```
 
 ---
 
@@ -429,10 +536,17 @@ curl http://localhost:8080/health
 - **Backups**: `/home/user/backups/`
 
 ### Default Ports
-- **Application**: `8080`
-- **Prometheus**: `9090`
-- **Grafana**: `3001`
-- **Traefik Dashboard**: `8081`
+- **Application**: `8080` (external), `3000` (internal Node.js)
+- **Health Endpoint**: `8080/health`
+- **Prometheus**: `9090` (if monitoring enabled)
+- **Grafana**: `3001` (if monitoring enabled)
+- **Traefik Dashboard**: `8081` (if proxy enabled)
+
+### New Features (v1.2.0)
+- **End User Tracking**: Required field for who submitted the repair
+- **Technician Assignment**: Optional field for technician assignment
+- **Enhanced Table**: Two additional columns between Ticket # and Brand
+- **Node.js Server**: Persistent data storage with automatic fallback to localStorage
 
 ---
 
