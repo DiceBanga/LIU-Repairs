@@ -2,26 +2,92 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ]  # Only triggers on main branch pushes
+  workflow_dispatch:    # Manual trigger option
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
     - name: Check out the repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
     - name: Log in to Docker Hub
-      uses: docker/login-action@v1
+      uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
     - name: Build and push Docker image
-      uses: docker/build-push-action@v2
+      uses: docker/build-push-action@v5
       with:
         context: .
         push: true
         tags: |
           ${{ secrets.DOCKER_USERNAME }}/liu-repairs:latest
           ${{ secrets.DOCKER_USERNAME }}/liu-repairs:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        port: ${{ secrets.SERVER_PORT || '22' }}
+        script: |
+          echo "🚀 Starting deployment..."
+          
+          # Navigate to application directory
+          cd /opt/LIU-Repairs || cd ~/LIU-Repairs || { echo "❌ Application directory not found"; exit 1; }
+          
+          # Pull latest images from Docker Hub
+          echo "📦 Pulling latest Docker images..."
+          docker compose pull
+          
+          # Restart services with new images
+          echo "🔄 Restarting services..."
+          docker compose up -d
+          
+          # Clean up old images to save space
+          echo "🧹 Cleaning up old Docker images..."
+          docker system prune -f
+          
+          # Wait for services to be healthy
+          echo "⏳ Waiting for services to start..."
+          sleep 10
+          
+          # Health check
+          echo "🔍 Performing health check..."
+          if curl -f -s http://localhost:8080/health > /dev/null; then
+            echo "✅ Deployment successful! Application is healthy."
+          else
+            echo "❌ Health check failed. Please check the application."
+            docker compose logs --tail=20
+            exit 1
+          fi
+          
+          echo "🎉 Deployment completed successfully!"
+
+  notify:
+    needs: [build-and-push, deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+    - name: Notify deployment status
+      run: |
+        if [ "${{ needs.deploy.result }}" == "success" ]; then
+          echo "✅ Deployment successful for commit ${{ github.sha }}"
+        else
+          echo "❌ Deployment failed for commit ${{ github.sha }}"
+        fi
