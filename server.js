@@ -1,10 +1,14 @@
 const http = require('http');
 const fs = require('fs').promises;
 const path = require('path');
+const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || './data';
 const STATIC_DIR = process.env.STATIC_DIR || '.';
+
+let wss;
+const clients = new Set();
 
 // Ensure data directory exists
 async function ensureDataDir() {
@@ -78,10 +82,17 @@ async function handleDataAPI(req, res, dataFile) {
         req.on('end', async () => {
             try {
                 // Validate JSON
-                JSON.parse(body);
+                const data = JSON.parse(body);
                 
                 // Save to file
                 await fs.writeFile(filePath, body, 'utf8');
+                
+                // Broadcast update to all connected clients
+                broadcastUpdate({
+                    type: 'dataUpdate',
+                    file: dataFile,
+                    data: data
+                });
                 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: true }));
@@ -96,6 +107,20 @@ async function handleDataAPI(req, res, dataFile) {
     }
 }
 
+// WebSocket broadcast function
+function broadcastUpdate(message) {
+    clients.forEach(client => {
+        if (client.readyState === 1) { // WebSocket.OPEN
+            try {
+                client.send(JSON.stringify(message));
+            } catch (error) {
+                console.error('Error broadcasting to client:', error);
+                clients.delete(client);
+            }
+        }
+    });
+}
+
 // Main request handler
 const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://localhost:${PORT}`);
@@ -108,6 +133,17 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'OPTIONS') {
         res.writeHead(200);
         res.end();
+        return;
+    }
+    
+    // Health check endpoint
+    if (url.pathname === '/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+            status: 'ok', 
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime()
+        }));
         return;
     }
     
@@ -141,19 +177,6 @@ const server = http.createServer(async (req, res) => {
     await serveStatic(req, res, filePath);
 });
 
-// Health check endpoint
-server.on('request', (req, res) => {
-    if (req.url === '/health') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ 
-            status: 'ok', 
-            timestamp: new Date().toISOString(),
-            uptime: process.uptime()
-        }));
-        return;
-    }
-});
-
 // Start server
 async function start() {
     await ensureDataDir();
@@ -162,6 +185,49 @@ async function start() {
         console.log(`LIU Repairs Tracker server running on http://localhost:${PORT}`);
         console.log(`Data directory: ${DATA_DIR}`);
         console.log(`Static directory: ${STATIC_DIR}`);
+    });
+
+    // Setup WebSocket server
+    wss = new WebSocketServer({ server });
+    
+    wss.on('connection', (ws) => {
+        console.log('New WebSocket client connected');
+        clients.add(ws);
+        
+        ws.on('message', async (message) => {
+            try {
+                const request = JSON.parse(message.toString());
+                if (request.type === 'requestData' && request.file) {
+                    const filePath = path.join(DATA_DIR, request.file);
+                    try {
+                        const data = await fs.readFile(filePath, 'utf8');
+                        ws.send(JSON.stringify({
+                            type: 'initialData',
+                            file: request.file,
+                            data: JSON.parse(data)
+                        }));
+                    } catch (error) {
+                        ws.send(JSON.stringify({
+                            type: 'initialData',
+                            file: request.file,
+                            data: []
+                        }));
+                    }
+                }
+            } catch (error) {
+                console.error('Error handling WebSocket message:', error);
+            }
+        });
+        
+        ws.on('close', () => {
+            console.log('WebSocket client disconnected');
+            clients.delete(ws);
+        });
+        
+        ws.on('error', (error) => {
+            console.error('WebSocket error:', error);
+            clients.delete(ws);
+        });
     });
 }
 
